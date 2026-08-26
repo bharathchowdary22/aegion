@@ -1,0 +1,43 @@
+# Environment Variables
+.env
+.env.*
+!.env.example
+secrets/
+credentials/
+
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+.pnp
+.pnp.js
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+env/
+.Python
+
+# Next.js Build Output
+.next/
+out/
+build/
+dist/
+
+# Logs and Caches
+logs/
+*.log
+.eslintcache
+.stylelintcache
+
+# IDE and OS
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
