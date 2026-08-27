@@ -99,3 +99,30 @@ async def test_stream_chat_cancellation(mocker, mock_messages):
             
     assert len(results) == 1
     assert "event: message" in results[0]
+
+# --- Phase 3 Tests ---
+
+def test_system_prompt_security_instructions():
+    from app.services.ai_service import SYSTEM_PROMPT
+    content = SYSTEM_PROMPT["content"]
+    
+    # 1. Security-analysis instructions are present
+    assert "structured cybersecurity analysis" in content
+    
+    # 2. Severity guidance is present
+    assert "CRITICAL" in content
+    assert "HIGH" in content
+    assert "INFO" in content
+    
+    # 3. Structured security response fields are present
+    assert "Finding:" in content
+    assert "Severity:" in content
+    assert "Explanation:" in content
+    assert "Recommended Mitigation:" in content
+    
+    # 4. Defensive/cautious language guidance is present
+    assert "cautious and defensive language" in content
+    assert "Potential vulnerability" in content
+    
+    # 5. Normal conversation remains supported
+    assert "reply normally" in content
