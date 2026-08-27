@@ -1,7 +1,8 @@
 import json
-from typing import AsyncGenerator
+from typing import AsyncGenerator, List, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 from app.api.deps import get_current_user
 from app.db.models import User
 from app.schemas.scan import ScanRequest
@@ -11,6 +12,10 @@ from app.schemas.chat import Message
 from app.core.logging import logger
 
 router = APIRouter()
+
+class ScanAnalyzeResponse(BaseModel):
+    findings: List[Dict[str, Any]]
+    summary: Dict[str, int]
 
 @router.post("")
 async def scan_endpoint(
@@ -39,3 +44,34 @@ async def scan_endpoint(
         ai_service.stream_chat(messages),
         media_type="text/event-stream"
     )
+
+@router.post("/analyze", response_model=ScanAnalyzeResponse)
+async def analyze_code(
+    request: ScanRequest,
+    current_user: User = Depends(get_current_user)
+):
+    logger.info(f"Received analyze request of length {len(request.content)} from user {current_user.id}")
+    findings = scanner_service.scan_code(request.content)
+    
+    summary = {
+        "CRITICAL": 0,
+        "HIGH": 0,
+        "MEDIUM": 0,
+        "LOW": 0,
+        "INFO": 0,
+        "total": len(findings)
+    }
+    
+    findings_dicts = []
+    for f in findings:
+        if f.severity in summary:
+            summary[f.severity] += 1
+        
+        d = f.model_dump()
+        d["status"] = "OPEN"
+        d["impact"] = "Potential security compromise if exploited."
+        d["mitigation"] = "Review the provided evidence and implement secure coding practices."
+        d["verification"] = "Verify the fix by running the security scanner again."
+        findings_dicts.append(d)
+        
+    return ScanAnalyzeResponse(findings=findings_dicts, summary=summary)
