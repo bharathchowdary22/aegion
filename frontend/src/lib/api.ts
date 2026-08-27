@@ -23,7 +23,9 @@ async function handleStreamResponse(
     try {
       const errorData = await response.json();
       errorMsg = errorData.detail?.[0]?.msg || errorData.detail || errorMsg;
-    } catch (e) {}
+    } catch {
+      // ignore
+    }
     throw new ApiError(errorMsg);
   }
 
@@ -74,7 +76,7 @@ async function handleStreamResponse(
         if ((event === "message" || parsed.type === "message") && parsed.content) {
           onMessage(parsed.content);
         }
-      } catch(e) {
+      } catch {
         console.error("Failed to parse SSE data", dataStr);
       }
     }
@@ -96,7 +98,7 @@ export async function streamChat(
   const { data: { session } } = await supabase.auth.getSession();
   
   try {
-    const payload: any = { messages };
+    const payload: Record<string, unknown> = { messages };
     if (conversationId) {
       payload.conversation_id = conversationId;
     }
@@ -112,12 +114,13 @@ export async function streamChat(
     });
 
     await handleStreamResponse(response, onMessage, onError, onDone);
-  } catch (error: any) {
-    if (error.name === "AbortError") {
+  } catch (error: unknown) {
+    if (error instanceof Error && error.name === "AbortError") {
       console.log("Stream aborted");
       onDone(); // Finalize stream on client disconnect gracefully
     } else {
-      onError(error.message || "An unexpected error occurred.");
+      const msg = error instanceof Error ? error.message : "An unexpected error occurred.";
+      onError(msg);
     }
   }
 }
@@ -145,12 +148,13 @@ export async function streamScan(
     });
 
     await handleStreamResponse(response, onMessage, onError, onDone);
-  } catch (error: any) {
-    if (error.name === "AbortError") {
+  } catch (error: unknown) {
+    if (error instanceof Error && error.name === "AbortError") {
       console.log("Stream aborted");
       onDone(); // Finalize stream on client disconnect gracefully
     } else {
-      onError(error.message || "An unexpected error occurred.");
+      const msg = error instanceof Error ? error.message : "An unexpected error occurred.";
+      onError(msg);
     }
   }
 }
