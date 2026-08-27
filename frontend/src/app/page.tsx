@@ -4,7 +4,7 @@ import { useState, useRef } from "react";
 import SidebarPlaceholder from "@/components/Sidebar/SidebarPlaceholder";
 import MessageList from "@/components/Chat/MessageList";
 import ChatInput from "@/components/Chat/ChatInput";
-import { Message, streamChat } from "@/lib/api";
+import { Message, streamChat, streamScan } from "@/lib/api";
 
 export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -13,8 +13,8 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  const handleSendMessage = async (content: string) => {
-    const userMessage: Message = { role: "user", content };
+  const handleSendMessage = async (content: string, isScan: boolean) => {
+    const userMessage: Message = { role: "user", content: isScan ? `[Code Scan Request]\n\n${content}` : content };
     const updatedMessages = [...messages, userMessage];
     setMessages(updatedMessages);
     setError(null);
@@ -22,33 +22,45 @@ export default function Home() {
     setStreamingContent("");
 
     abortControllerRef.current = new AbortController();
-
     let currentStream = "";
 
-    await streamChat(
-      updatedMessages,
-      undefined, // conversationId
-      // onMessage (chunk)
-      (chunk) => {
-        currentStream += chunk;
-        setStreamingContent(currentStream);
-      },
-      // onError
-      (errorMsg) => {
-        setError(errorMsg);
-        setIsGenerating(false);
-        setStreamingContent(undefined);
-      },
-      // onDone
-      () => {
-        if (currentStream) {
-          setMessages([...updatedMessages, { role: "assistant", content: currentStream }]);
-        }
-        setIsGenerating(false);
-        setStreamingContent(undefined);
-      },
-      abortControllerRef.current.signal
-    );
+    const onChunk = (chunk: string) => {
+      currentStream += chunk;
+      setStreamingContent(currentStream);
+    };
+
+    const onErr = (errorMsg: string) => {
+      setError(errorMsg);
+      setIsGenerating(false);
+      setStreamingContent(undefined);
+    };
+
+    const onComplete = () => {
+      if (currentStream) {
+        setMessages([...updatedMessages, { role: "assistant", content: currentStream }]);
+      }
+      setIsGenerating(false);
+      setStreamingContent(undefined);
+    };
+
+    if (isScan) {
+      await streamScan(
+        content,
+        onChunk,
+        onErr,
+        onComplete,
+        abortControllerRef.current.signal
+      );
+    } else {
+      await streamChat(
+        updatedMessages,
+        undefined, // conversationId
+        onChunk,
+        onErr,
+        onComplete,
+        abortControllerRef.current.signal
+      );
+    }
   };
 
   const handleStop = () => {
@@ -67,7 +79,7 @@ export default function Home() {
             Aegion Chat
           </div>
           <div className="text-xs text-gray-500 font-mono tracking-wider">
-            PHASE 1
+            PHASE 4
           </div>
         </header>
 

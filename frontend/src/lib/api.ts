@@ -12,6 +12,77 @@ export class ApiError extends Error {
   }
 }
 
+async function handleStreamResponse(
+  response: Response, 
+  onMessage: (chunk: string) => void, 
+  onError: (error: string) => void, 
+  onDone: () => void
+) {
+  if (!response.ok) {
+    let errorMsg = "Failed to connect to the server.";
+    try {
+      const errorData = await response.json();
+      errorMsg = errorData.detail?.[0]?.msg || errorData.detail || errorMsg;
+    } catch (e) {}
+    throw new ApiError(errorMsg);
+  }
+
+  if (!response.body) throw new Error("No response body");
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    
+    const lines = buffer.split("\n\n");
+    buffer = lines.pop() || ""; // Keep the incomplete part
+
+    for (const block of lines) {
+      if (!block.trim()) continue;
+      
+      let event = "message";
+      let dataStr = "";
+      
+      for (const line of block.split("\n")) {
+        if (line.startsWith("event:")) {
+          event = line.replace("event:", "").trim();
+        } else if (line.startsWith("data:")) {
+          dataStr = line.replace("data:", "").trim();
+        }
+      }
+
+      if (!dataStr) continue;
+
+      try {
+        const parsed = JSON.parse(dataStr);
+        
+        if (event === "error" || parsed.type === "error") {
+          onError(parsed.message || "An error occurred");
+          return;
+        }
+
+        if (event === "done" || parsed.type === "done") {
+          onDone();
+          return;
+        }
+
+        if ((event === "message" || parsed.type === "message") && parsed.content) {
+          onMessage(parsed.content);
+        }
+      } catch(e) {
+        console.error("Failed to parse SSE data", dataStr);
+      }
+    }
+  }
+  
+  onDone();
+}
+
 export async function streamChat(
   messages: Message[],
   conversationId: string | undefined,
@@ -40,70 +111,40 @@ export async function streamChat(
       signal,
     });
 
-    if (!response.ok) {
-      let errorMsg = "Failed to connect to the server.";
-      try {
-        const errorData = await response.json();
-        errorMsg = errorData.detail?.[0]?.msg || errorData.detail || errorMsg;
-      } catch (e) {}
-      throw new ApiError(errorMsg);
+    await handleStreamResponse(response, onMessage, onError, onDone);
+  } catch (error: any) {
+    if (error.name === "AbortError") {
+      console.log("Stream aborted");
+      onDone(); // Finalize stream on client disconnect gracefully
+    } else {
+      onError(error.message || "An unexpected error occurred.");
     }
+  }
+}
 
-    if (!response.body) throw new Error("No response body");
+export async function streamScan(
+  content: string,
+  onMessage: (chunk: string) => void,
+  onError: (error: string) => void,
+  onDone: () => void,
+  signal?: AbortSignal
+) {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  const supabase = createClient();
+  const { data: { session } } = await supabase.auth.getSession();
+  
+  try {
+    const response = await fetch(`${apiUrl}/api/v1/scan`, {
+      method: "POST",
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": session ? `Bearer ${session.access_token}` : ""
+      },
+      body: JSON.stringify({ content }),
+      signal,
+    });
 
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-      
-      const lines = buffer.split("\n\n");
-      buffer = lines.pop() || ""; // Keep the incomplete part
-
-      for (const block of lines) {
-        if (!block.trim()) continue;
-        
-        let event = "message";
-        let dataStr = "";
-        
-        for (const line of block.split("\n")) {
-          if (line.startsWith("event:")) {
-            event = line.replace("event:", "").trim();
-          } else if (line.startsWith("data:")) {
-            dataStr = line.replace("data:", "").trim();
-          }
-        }
-
-        if (!dataStr) continue;
-
-        try {
-          const parsed = JSON.parse(dataStr);
-          
-          if (event === "error" || parsed.type === "error") {
-            onError(parsed.message || "An error occurred");
-            return;
-          }
-
-          if (event === "done" || parsed.type === "done") {
-            onDone();
-            return;
-          }
-
-          if ((event === "message" || parsed.type === "message") && parsed.content) {
-            onMessage(parsed.content);
-          }
-        } catch(e) {
-          console.error("Failed to parse SSE data", dataStr);
-        }
-      }
-    }
-    
-    onDone();
-
+    await handleStreamResponse(response, onMessage, onError, onDone);
   } catch (error: any) {
     if (error.name === "AbortError") {
       console.log("Stream aborted");
