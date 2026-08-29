@@ -36,3 +36,45 @@ class Message(Base):
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow, index=True)
     
     conversation = relationship("Conversation", back_populates="messages")
+
+class SecurityEvent(Base):
+    __tablename__ = "security_events"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    timestamp = Column(DateTime(timezone=True), default=datetime.utcnow, index=True)
+    source = Column(String, nullable=False)
+    event_type = Column(String, nullable=False)
+    severity = Column(String, nullable=False)
+    category = Column(String, nullable=False)
+    
+    # Optional fields
+    source_ip = Column(String, nullable=True)
+    destination_ip = Column(String, nullable=True)
+    hostname = Column(String, nullable=True)
+    username = Column(String, nullable=True)
+    message = Column(String, nullable=True)
+    raw_event = Column(String, nullable=True)
+    
+    status = Column(String, default="OPEN")
+    detection_rule = Column(String, nullable=True)
+
+    user = relationship("User")
+    alerts = relationship("SecurityAlert", back_populates="event", cascade="all, delete-orphan")
+
+class SecurityAlert(Base):
+    __tablename__ = "security_alerts"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    event_id = Column(UUID(as_uuid=True), ForeignKey("security_events.id", ondelete="CASCADE"), nullable=False, index=True)
+    rule_id = Column(String, nullable=False)
+    title = Column(String, nullable=False)
+    severity = Column(String, nullable=False)
+    category = Column(String, nullable=False)
+    description = Column(String, nullable=True)
+    timestamp = Column(DateTime(timezone=True), default=datetime.utcnow, index=True)
+    status = Column(String, default="OPEN", index=True)
+
+    user = relationship("User")
+    event = relationship("SecurityEvent", back_populates="alerts")

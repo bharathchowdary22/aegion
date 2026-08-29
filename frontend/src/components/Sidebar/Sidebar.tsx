@@ -136,9 +136,18 @@ export default function Sidebar({
           </div>
         )}
       </div>
+
+      <div className="p-2 border-t border-gray-800 space-y-1">
+        <a href="/dashboard" className="block w-full p-2 rounded hover:bg-gray-800 text-sm text-gray-400">
+          🛡️ Security Scanner
+        </a>
+        <a href="/soc" className="block w-full p-2 rounded hover:bg-gray-800 text-sm text-gray-400">
+          🚨 SOC Dashboard
+        </a>
+      </div>
       
       <div className="p-4 border-t border-gray-800 text-xs text-gray-500 text-center">
-        Phase 7<br />Persistent chat history
+        Phase 8<br />SIEM & SOC Integration
       </div>
     </aside>
   );

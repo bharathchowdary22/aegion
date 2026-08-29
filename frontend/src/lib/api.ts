@@ -213,3 +213,83 @@ export async function deleteConversation(id: string) {
   
   if (!res.ok) throw new Error("Failed to delete conversation");
 }
+
+export async function getSiemEvents(page: number = 1, pageSize: number = 50, severity?: string, category?: string) {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  const supabase = createClient();
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error("Not authenticated");
+
+  const query = new URLSearchParams({
+    page: page.toString(),
+    page_size: pageSize.toString()
+  });
+  if (severity && severity !== "ALL") query.append("severity", severity);
+  if (category && category !== "ALL") query.append("category", category);
+
+  const res = await fetch(`${apiUrl}/api/v1/siem/events?${query.toString()}`, {
+    headers: { "Authorization": `Bearer ${session.access_token}` }
+  });
+  
+  if (!res.ok) throw new Error("Failed to fetch events");
+  return res.json();
+}
+
+export async function getSiemAlerts(page: number = 1, pageSize: number = 50, severity?: string, status?: string) {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  const supabase = createClient();
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error("Not authenticated");
+
+  const query = new URLSearchParams({
+    page: page.toString(),
+    page_size: pageSize.toString()
+  });
+  if (severity && severity !== "ALL") query.append("severity", severity);
+  if (status && status !== "ALL") query.append("status", status);
+
+  const res = await fetch(`${apiUrl}/api/v1/siem/alerts?${query.toString()}`, {
+    headers: { "Authorization": `Bearer ${session.access_token}` }
+  });
+  
+  if (!res.ok) throw new Error("Failed to fetch alerts");
+  return res.json();
+}
+
+export async function updateAlertStatus(alertId: string, status: string) {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  const supabase = createClient();
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error("Not authenticated");
+
+  const res = await fetch(`${apiUrl}/api/v1/siem/alerts/${alertId}`, {
+    method: "PATCH",
+    headers: {
+      "Authorization": `Bearer ${session.access_token}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ status })
+  });
+  
+  if (!res.ok) throw new Error("Failed to update alert status");
+  return res.json();
+}
+
+export async function submitSiemEvent(eventData: Record<string, unknown>) {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  const supabase = createClient();
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error("Not authenticated");
+
+  const res = await fetch(`${apiUrl}/api/v1/siem/events`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${session.access_token}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(eventData)
+  });
+  
+  if (!res.ok) throw new Error("Failed to submit event");
+  return res.json();
+}
