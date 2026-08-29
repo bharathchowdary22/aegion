@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import SidebarPlaceholder from "@/components/Sidebar/SidebarPlaceholder";
-import { getSiemEvents, getSiemAlerts, updateAlertStatus, submitSiemEvent } from "@/lib/api";
+import { getSiemEvents, getSiemAlerts, updateAlertStatus, submitSiemEvent, getAlertIntelligence, analyzeAlert } from "@/lib/api";
 
 type SecurityEvent = {
   id: string;
@@ -33,6 +33,28 @@ type SecurityAlert = {
   status: "OPEN" | "IN REVIEW" | "RESOLVED" | "FALSE POSITIVE";
 };
 
+type SecurityIntelligence = {
+  id: string;
+  source_type: string;
+  source_id: string;
+  risk_score: string;
+  confidence: string;
+  summary: string;
+  evidence: string;
+  indicators: string;
+  related_events: string;
+  related_alerts: string;
+  recommended_actions: string;
+  created_at: string;
+};
+
+type IOCIndicator = {
+  indicator: string;
+  type: string;
+  description?: string;
+  source?: string;
+};
+
 export default function SOCDashboard() {
   const [events, setEvents] = useState<SecurityEvent[]>([]);
   const [alerts, setAlerts] = useState<SecurityAlert[]>([]);
@@ -45,6 +67,8 @@ export default function SOCDashboard() {
 
   const [selectedAlert, setSelectedAlert] = useState<SecurityAlert | null>(null);
   const [selectedEventForAlert, setSelectedEventForAlert] = useState<SecurityEvent | null>(null);
+  const [intelligence, setIntelligence] = useState<SecurityIntelligence | null>(null);
+  const [investigating, setInvestigating] = useState(false);
 
   // Synthetic Test Tools
   const [syntheticLoading, setSyntheticLoading] = useState(false);
@@ -93,9 +117,30 @@ export default function SOCDashboard() {
     }
   };
 
-  const handleSelectAlert = (alert: SecurityAlert) => {
+  const handleSelectAlert = async (alert: SecurityAlert) => {
     setSelectedAlert(alert);
+    setIntelligence(null);
     loadEventForAlert(alert.event_id);
+    try {
+      const intel = await getAlertIntelligence(alert.id);
+      if (intel && intel.length > 0) {
+        setIntelligence(intel[0]); // most recent
+      }
+    } catch (err) {
+      console.error("No existing intelligence found or error", err);
+    }
+  };
+
+  const handleInvestigate = async (alertId: string) => {
+    setInvestigating(true);
+    try {
+      const intel = await analyzeAlert(alertId);
+      setIntelligence(intel);
+    } catch (err) {
+      console.error("Failed to analyze alert", err);
+    } finally {
+      setInvestigating(false);
+    }
   };
 
   const handleStatusChange = async (alertId: string, newStatus: string) => {
@@ -326,6 +371,15 @@ export default function SOCDashboard() {
                     <h2 className="text-2xl font-bold text-gray-100">{selectedAlert.title}</h2>
                     <div className="text-sm text-gray-400 mt-1">{new Date(selectedAlert.timestamp).toLocaleString()}</div>
                   </div>
+                  <div>
+                    <button
+                        onClick={() => handleInvestigate(selectedAlert.id)}
+                        disabled={investigating}
+                        className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition-colors"
+                    >
+                        {investigating ? "Analyzing..." : "Investigate with AI"}
+                    </button>
+                  </div>
                 </div>
 
                 <div className="space-y-6 text-sm">
@@ -373,6 +427,70 @@ export default function SOCDashboard() {
                                 </div>
                             </div>
                         )}
+                    </div>
+                  )}
+
+                  {/* Investigation Intelligence */}
+                  {intelligence && (
+                    <div className="space-y-4 pt-4 border-t border-gray-800">
+                        <h3 className="font-semibold text-lg text-blue-400 border-b border-gray-800 pb-2">Intelligence Context</h3>
+                        
+                        <div className="bg-gray-950 p-4 rounded-lg border border-gray-800 flex items-center justify-between">
+                            <div>
+                                <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Risk Score</div>
+                                <div className="text-2xl font-bold text-gray-200">{intelligence.risk_score} / 100</div>
+                            </div>
+                            <div className="text-right">
+                                <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-1">Confidence</div>
+                                <span className="bg-gray-800 text-gray-300 px-2 py-1 rounded text-xs font-bold">{intelligence.confidence}</span>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
+                                <h4 className="text-xs text-blue-400 uppercase tracking-wider font-bold mb-2">DETECTED (Deterministic)</h4>
+                                <div className="space-y-3">
+                                    <div>
+                                        <div className="text-xs text-gray-500 uppercase font-semibold">Related Events</div>
+                                        <div className="text-sm text-gray-300">{intelligence.related_events ? JSON.parse(intelligence.related_events).length : 0} event(s) correlated</div>
+                                    </div>
+                                    <div>
+                                        <div className="text-xs text-gray-500 uppercase font-semibold">IOC Indicators</div>
+                                        {intelligence.indicators && JSON.parse(intelligence.indicators).length > 0 ? (
+                                            <ul className="text-sm font-mono text-gray-300 list-disc list-inside">
+                                                {(JSON.parse(intelligence.indicators) as IOCIndicator[]).map((ioc, idx) => (
+                                                    <li key={idx} title={ioc.description || ioc.source}>{ioc.indicator} <span className="text-xs text-gray-500 ml-1 border rounded px-1">{ioc.type}</span></li>
+                                                ))}
+                                            </ul>
+                                        ) : (
+                                            <div className="text-sm text-gray-500">None detected</div>
+                                        )}
+                                    </div>
+                                    <div>
+                                        <div className="text-xs text-gray-500 uppercase font-semibold">Deterministic Evidence</div>
+                                        <div className="text-sm text-gray-300 whitespace-pre-wrap">{intelligence.evidence?.split('\n')[0]}</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="bg-gray-900 border border-gray-800 rounded-lg p-4 shadow-[0_0_15px_rgba(59,130,246,0.1)]">
+                                <h4 className="text-xs text-purple-400 uppercase tracking-wider font-bold mb-2 flex items-center gap-2">
+                                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" /></svg>
+                                    INFERRED (AI Analysis)
+                                </h4>
+                                <div className="space-y-3">
+                                    <div>
+                                        <div className="text-xs text-gray-500 uppercase font-semibold">Summary</div>
+                                        <div className="text-sm text-gray-300 leading-relaxed">{intelligence.summary}</div>
+                                    </div>
+                                    {intelligence.recommended_actions && (
+                                        <div>
+                                            <div className="text-xs text-gray-500 uppercase font-semibold">Recommended Actions</div>
+                                            <div className="text-sm text-gray-300 leading-relaxed">{intelligence.recommended_actions}</div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
                     </div>
                   )}
                 </div>

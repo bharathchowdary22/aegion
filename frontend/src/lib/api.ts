@@ -293,3 +293,40 @@ export async function submitSiemEvent(eventData: Record<string, unknown>) {
   if (!res.ok) throw new Error("Failed to submit event");
   return res.json();
 }
+
+// ----------------------------------------------------------------------------
+// Phase 9: Intelligence API
+// ----------------------------------------------------------------------------
+
+export async function analyzeAlert(alertId: string) {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  const supabase = createClient();
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error("Not authenticated");
+
+  const res = await fetch(`${apiUrl}/api/v1/intelligence/analyze-alert/${alertId}`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${session.access_token}`,
+    }
+  });
+  
+  if (!res.ok) throw new Error("Failed to analyze alert");
+  return res.json();
+}
+
+export async function getAlertIntelligence(alertId: string) {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  const supabase = createClient();
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error("Not authenticated");
+
+  const res = await fetch(`${apiUrl}/api/v1/intelligence/alert/${alertId}`, {
+    headers: {
+      "Authorization": `Bearer ${session.access_token}`,
+    }
+  });
+  
+  if (!res.ok) throw new Error("Failed to fetch intelligence for alert");
+  return res.json(); // returns array
+}

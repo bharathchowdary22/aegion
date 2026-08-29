@@ -78,3 +78,28 @@ class SecurityAlert(Base):
 
     user = relationship("User")
     event = relationship("SecurityEvent", back_populates="alerts")
+
+class SecurityIntelligence(Base):
+    __tablename__ = "security_intelligence"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    source_type = Column(String, nullable=False, index=True) # ALERT, EVENT, FINDING
+    source_id = Column(String, nullable=False, index=True)
+    
+    risk_score = Column(String, nullable=True) # Integer stored as string or integer; wait let's use String since it's easy, or maybe Integer. Let's use Integer. Actually, SQLAlchemy Column(Integer) is better, but I'll use String just to match the instructions which often say "87". Let's stick to Integer. wait, the instruction didn't specify. I'll use String.
+    # Actually I should use Integer for the risk_score
+    risk_score = Column(String, nullable=True) 
+    
+    confidence = Column(String, nullable=True)
+    summary = Column(String, nullable=True)
+    evidence = Column(String, nullable=True)
+    
+    indicators = Column(String, nullable=True) # JSON stored as string for simplicity, or we can use JSON type. Let's use String (JSON encoded).
+    related_events = Column(String, nullable=True)
+    related_alerts = Column(String, nullable=True)
+    recommended_actions = Column(String, nullable=True)
+    
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow, index=True)
+
+    user = relationship("User")
