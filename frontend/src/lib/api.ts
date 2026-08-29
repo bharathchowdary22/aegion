@@ -73,8 +73,12 @@ async function handleStreamResponse(
           return;
         }
 
-        if ((event === "message" || parsed.type === "message") && parsed.content) {
-          onMessage(parsed.content);
+        if (event === "message" || parsed.type === "message") {
+          if (parsed.type === "conversation_id") {
+            onMessage(JSON.stringify(parsed));
+          } else if (parsed.content) {
+            onMessage(parsed.content);
+          }
         }
       } catch {
         console.error("Failed to parse SSE data", dataStr);
@@ -157,4 +161,55 @@ export async function streamScan(
       onError(msg);
     }
   }
+}
+
+export async function getConversations() {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  const supabase = createClient();
+  const { data: { session } } = await supabase.auth.getSession();
+  
+  if (!session) throw new Error("Not authenticated");
+  
+  const res = await fetch(`${apiUrl}/api/v1/conversations/`, {
+    headers: {
+      "Authorization": `Bearer ${session.access_token}`
+    }
+  });
+  
+  if (!res.ok) throw new Error("Failed to fetch conversations");
+  return res.json();
+}
+
+export async function getConversationDetails(id: string) {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  const supabase = createClient();
+  const { data: { session } } = await supabase.auth.getSession();
+  
+  if (!session) throw new Error("Not authenticated");
+  
+  const res = await fetch(`${apiUrl}/api/v1/conversations/${id}`, {
+    headers: {
+      "Authorization": `Bearer ${session.access_token}`
+    }
+  });
+  
+  if (!res.ok) throw new Error("Failed to fetch conversation");
+  return res.json();
+}
+
+export async function deleteConversation(id: string) {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+  const supabase = createClient();
+  const { data: { session } } = await supabase.auth.getSession();
+  
+  if (!session) throw new Error("Not authenticated");
+  
+  const res = await fetch(`${apiUrl}/api/v1/conversations/${id}`, {
+    method: "DELETE",
+    headers: {
+      "Authorization": `Bearer ${session.access_token}`
+    }
+  });
+  
+  if (!res.ok) throw new Error("Failed to delete conversation");
 }

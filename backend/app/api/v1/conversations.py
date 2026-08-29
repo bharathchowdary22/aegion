@@ -65,3 +65,27 @@ async def get_conversation(
         )
         
     return conversation
+
+@router.delete("/{conversation_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_conversation(
+    conversation_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    stmt = select(Conversation).where(
+        Conversation.id == conversation_id,
+        Conversation.user_id == current_user.id
+    )
+    result = await db.execute(stmt)
+    conversation = result.scalar_one_or_none()
+    
+    if not conversation:
+        # Prevent IDOR
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Conversation not found"
+        )
+        
+    await db.delete(conversation)
+    await db.commit()
+    return None

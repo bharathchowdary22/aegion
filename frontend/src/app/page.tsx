@@ -1,17 +1,29 @@
 "use client";
 
-import { useState, useRef } from "react";
-import SidebarPlaceholder from "@/components/Sidebar/SidebarPlaceholder";
+import { useState, useRef, useEffect } from "react";
+import Sidebar from "@/components/Sidebar/Sidebar";
 import MessageList from "@/components/Chat/MessageList";
 import ChatInput from "@/components/Chat/ChatInput";
-import { Message, streamChat, streamScan } from "@/lib/api";
+import { Message, streamChat, streamScan, getConversationDetails } from "@/lib/api";
 
 export default function Home() {
   const [messages, setMessages] = useState<Message[]>([]);
+  const [conversationId, setConversationId] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [streamingContent, setStreamingContent] = useState<string | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  const updateUrl = (id: string | null) => {
+    if (typeof window !== "undefined") {
+      if (id) {
+        window.history.replaceState(null, '', `?id=${id}`);
+      } else {
+        window.history.replaceState(null, '', window.location.pathname);
+      }
+    }
+  };
+
 
   const handleSendMessage = async (content: string, isScan: boolean) => {
     const userMessage: Message = { role: "user", content: isScan ? `[Code Scan Request]\n\n${content}` : content };
@@ -54,8 +66,21 @@ export default function Home() {
     } else {
       await streamChat(
         updatedMessages,
-        undefined, // conversationId
-        onChunk,
+        conversationId || undefined,
+        (chunk) => {
+          // Check for conversation_id event injected by backend
+          try {
+            const parsed = JSON.parse(chunk);
+            if (parsed.type === "conversation_id" && parsed.conversation_id) {
+              setConversationId(parsed.conversation_id);
+              updateUrl(parsed.conversation_id);
+              return;
+            }
+          } catch {
+            // normal text chunk
+          }
+          onChunk(chunk);
+        },
         onErr,
         onComplete,
         abortControllerRef.current.signal
@@ -69,9 +94,52 @@ export default function Home() {
     }
   };
 
+  const handleSelectConversation = async (id: string) => {
+    setConversationId(id);
+    updateUrl(id);
+    setMessages([]);
+    setError(null);
+    try {
+      const details = await getConversationDetails(id);
+      setMessages(details.messages.map((m: { role: string; content: string }) => ({
+        role: m.role as "user" | "assistant",
+        content: m.content
+      })));
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message || "Failed to load conversation");
+      } else {
+        setError("Failed to load conversation");
+      }
+    }
+  };
+
+  const handleNewChat = () => {
+    setConversationId(null);
+    updateUrl(null);
+    setMessages([]);
+    setError(null);
+  };
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const urlParams = new URLSearchParams(window.location.search);
+      const id = urlParams.get('id');
+      if (id) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        handleSelectConversation(id);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   return (
     <div className="flex h-screen bg-gray-950 text-gray-100 overflow-hidden font-sans">
-      <SidebarPlaceholder />
+      <Sidebar 
+        selectedId={conversationId} 
+        onSelectConversation={handleSelectConversation} 
+        onNewChat={handleNewChat} 
+      />
       
       <main className="flex-1 flex flex-col h-full relative">
         <header className="h-14 border-b border-gray-800 flex items-center px-6 justify-between bg-gray-900/50 backdrop-blur-sm z-10">

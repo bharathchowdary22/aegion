@@ -15,7 +15,7 @@ from app.db.models import User, Conversation, Message
 
 router = APIRouter()
 
-async def get_or_create_conversation(db: AsyncSession, user_id: uuid.UUID, conversation_id: uuid.UUID | None) -> uuid.UUID:
+async def get_or_create_conversation(db: AsyncSession, user_id: uuid.UUID, conversation_id: uuid.UUID | None, first_message: str) -> uuid.UUID:
     if conversation_id:
         stmt = select(Conversation).where(Conversation.id == conversation_id, Conversation.user_id == user_id)
         result = await db.execute(stmt)
@@ -25,7 +25,8 @@ async def get_or_create_conversation(db: AsyncSession, user_id: uuid.UUID, conve
         return conversation_id
     
     # Create new conversation
-    new_conv = Conversation(user_id=user_id, title="New Conversation")
+    title = first_message[:40] + ("..." if len(first_message) > 40 else "")
+    new_conv = Conversation(user_id=user_id, title=title)
     db.add(new_conv)
     await db.commit()
     await db.refresh(new_conv)
@@ -48,7 +49,7 @@ async def chat_endpoint(
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid conversation_id format")
 
-    conv_id = await get_or_create_conversation(db, current_user.id, conv_uuid)
+    conv_id = await get_or_create_conversation(db, current_user.id, conv_uuid, request.messages[0].content if request.messages else "New Chat")
     
     # 2. Persist user message
     last_user_msg = request.messages[-1]
@@ -96,6 +97,11 @@ async def chat_endpoint(
                     await db.commit()
                 except Exception as e:
                     logger.error(f"Failed to persist assistant message: {e}")
+            
+            # Send conversation id to the client as an event if it was newly created or resolved
+            if not has_error:
+                conv_payload = json.dumps({"type": "conversation_id", "conversation_id": str(conv_id)})
+                yield f"event: message\ndata: {conv_payload}\n\n"
 
     return StreamingResponse(
         stream_and_save(),
