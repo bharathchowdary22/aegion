@@ -10,7 +10,7 @@ jobs:
   backend-test:
     runs-on: ubuntu-latest
     env:
-      PYTHONPATH: .
+      PYTHONPATH: ${{ github.workspace }}/backend
     steps:
       - uses: actions/checkout@v4
       
@@ -54,7 +54,7 @@ jobs:
   security-scan:
     runs-on: ubuntu-latest
     env:
-      PYTHONPATH: .
+      PYTHONPATH: ${{ github.workspace }}/backend
     steps:
       - uses: actions/checkout@v4
       
