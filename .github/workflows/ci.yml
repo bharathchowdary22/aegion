@@ -11,6 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       PYTHONPATH: ${{ github.workspace }}/backend
+      DATABASE_URL: postgresql+asyncpg://user:password@localhost:5432/aegion
     services:
       postgres:
         image: postgres:15
