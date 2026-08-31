@@ -9,6 +9,8 @@ on:
 jobs:
   backend-test:
     runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: .
     steps:
       - uses: actions/checkout@v4
       
@@ -51,6 +53,8 @@ jobs:
 
   security-scan:
     runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: .
     steps:
       - uses: actions/checkout@v4
       
