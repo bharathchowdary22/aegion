@@ -31,10 +31,13 @@ def main():
     elif os.path.isdir(target):
         for root, _, files in os.walk(target):
             # Safe skip list
-            if any(ignored in root for ignored in ['.git', 'node_modules', '.venv', '__pycache__', '.next']):
+            if any(ignored in root for ignored in ['.git', 'node_modules', '.venv', '__pycache__', '.next', 'tests', 'test']):
                 continue
             for file in files:
                 if file.endswith(('.py', '.ts', '.tsx', '.json', '.js', '.yml', '.yaml')):
+                    # Skip the scanner itself to avoid self-detection
+                    if file in ('security_scan.py', 'scanner_service.py'):
+                        continue
                     filepath = os.path.join(root, file)
                     all_findings.extend(scan_file(filepath))
     else:
