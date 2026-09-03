@@ -1,8 +1,21 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
-import SidebarPlaceholder from "@/components/Sidebar/SidebarPlaceholder";
-import { getSiemEvents, getSiemAlerts, updateAlertStatus, submitSiemEvent, getAlertIntelligence, analyzeAlert } from "@/lib/api";
+import React, { useState, useEffect } from "react";
+import Sidebar from "@/components/layout/Sidebar";
+import Header from "@/components/layout/Header";
+import MobileNav from "@/components/layout/MobileNav";
+import { Card, CyberCard } from "@/components/ui/Card";
+import { SeverityBadge, StatusBadge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
+import { EmptyState } from "@/components/ui/EmptyState";
+import {
+  getSiemEvents,
+  getSiemAlerts,
+  updateAlertStatus,
+  submitSiemEvent,
+  getAlertIntelligence,
+  analyzeAlert,
+} from "@/lib/api";
 
 type SecurityEvent = {
   id: string;
@@ -48,13 +61,6 @@ type SecurityIntelligence = {
   created_at: string;
 };
 
-type IOCIndicator = {
-  indicator: string;
-  type: string;
-  description?: string;
-  source?: string;
-};
-
 export default function SOCDashboard() {
   const [events, setEvents] = useState<SecurityEvent[]>([]);
   const [alerts, setAlerts] = useState<SecurityAlert[]>([]);
@@ -66,78 +72,60 @@ export default function SOCDashboard() {
   const [alertStatusFilter, setAlertStatusFilter] = useState("ALL");
 
   const [selectedAlert, setSelectedAlert] = useState<SecurityAlert | null>(null);
-  const [selectedEventForAlert, setSelectedEventForAlert] = useState<SecurityEvent | null>(null);
   const [intelligence, setIntelligence] = useState<SecurityIntelligence | null>(null);
   const [investigating, setInvestigating] = useState(false);
-
-  // Synthetic Test Tools
   const [syntheticLoading, setSyntheticLoading] = useState(false);
 
-  useEffect(() => {
-    const fetchSOCData = async () => {
-      setLoading(true);
-      try {
-        const [eventsData, alertsData] = await Promise.all([
-          getSiemEvents(1, 50, severityFilter),
-          getSiemAlerts(1, 50, severityFilter, alertStatusFilter)
-        ]);
-        setEvents(eventsData.items || []);
-        setTotalEvents(eventsData.total || 0);
-        setAlerts(alertsData.items || []);
-
-        if (selectedAlert) {
-          const matchingAlert = alertsData.items?.find((a: SecurityAlert) => a.id === selectedAlert.id);
-          if (matchingAlert) {
-              setSelectedAlert(matchingAlert);
-          }
-        }
-      } catch (err) {
-        console.error("Failed to load SOC data", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    fetchSOCData();
-  }, [severityFilter, alertStatusFilter, selectedAlert]);
-
-  const loadEventForAlert = async (eventId: string) => {
-    const e = events.find(e => e.id === eventId);
-    if (e) {
-      setSelectedEventForAlert(e);
-      return;
-    }
-    // Fetch if not in current page
+  const fetchSOCData = async () => {
+    setLoading(true);
     try {
-      const eData = await getSiemEvents(1, 100);
-      const ev = eData.items?.find((e: SecurityEvent) => e.id === eventId);
-      if (ev) setSelectedEventForAlert(ev);
+      const [eventsData, alertsData] = await Promise.all([
+        getSiemEvents(1, 50, severityFilter),
+        getSiemAlerts(1, 50, severityFilter, alertStatusFilter),
+      ]);
+      setEvents(eventsData.items || []);
+      setTotalEvents(eventsData.total || 0);
+      setAlerts(alertsData.items || []);
+
+      if (selectedAlert) {
+        const matchingAlert = alertsData.items?.find((a: SecurityAlert) => a.id === selectedAlert.id);
+        if (matchingAlert) {
+          setSelectedAlert(matchingAlert);
+        }
+      }
     } catch (err) {
-      console.error(err);
+      console.error("Failed to load SOC data", err);
+    } finally {
+      setLoading(false);
     }
   };
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchSOCData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [severityFilter, alertStatusFilter]);
 
   const handleSelectAlert = async (alert: SecurityAlert) => {
     setSelectedAlert(alert);
     setIntelligence(null);
-    loadEventForAlert(alert.event_id);
     try {
-      const intel = await getAlertIntelligence(alert.id);
-      if (intel && intel.length > 0) {
-        setIntelligence(intel[0]); // most recent
+      const intelList = await getAlertIntelligence(alert.id);
+      if (intelList && intelList.length > 0) {
+        setIntelligence(intelList[0]);
       }
-    } catch (err) {
-      console.error("No existing intelligence found or error", err);
+    } catch {
+      // No existing intelligence recorded yet
     }
   };
 
-  const handleInvestigate = async (alertId: string) => {
+  const handleAnalyzeAlertWithAI = async (alertId: string) => {
     setInvestigating(true);
     try {
       const intel = await analyzeAlert(alertId);
       setIntelligence(intel);
     } catch (err) {
-      console.error("Failed to analyze alert", err);
+      console.error("AI Analysis failed", err);
     } finally {
       setInvestigating(false);
     }
@@ -146,412 +134,333 @@ export default function SOCDashboard() {
   const handleStatusChange = async (alertId: string, newStatus: string) => {
     try {
       await updateAlertStatus(alertId, newStatus);
-      // We could re-fetch data, but for now we trust it or reload locally
-      // For simplicity, we just trigger a state change to re-fetch
-      setSeverityFilter(prev => prev); // trigger effect
+      await fetchSOCData();
+      if (selectedAlert && selectedAlert.id === alertId) {
+        setSelectedAlert({ ...selectedAlert, status: newStatus as SecurityAlert["status"] });
+      }
     } catch (err) {
       console.error("Failed to update status", err);
     }
   };
 
-  const triggerSyntheticEvent = async (type: string) => {
+  // Synthetic Test Generator for SIEM
+  const handleTriggerSyntheticThreat = async (type: "BRUTE_FORCE" | "SQL_INJECTION") => {
     setSyntheticLoading(true);
     try {
-      if (type === "brute_force") {
+      if (type === "BRUTE_FORCE") {
         for (let i = 0; i < 5; i++) {
           await submitSiemEvent({
-            source: "synthetic-tester",
+            source: "auth-gateway",
             event_type: "login_failed",
-            severity: "LOW",
+            severity: "HIGH",
             category: "Authentication",
-            source_ip: "192.168.1.100",
-            username: "admin"
+            source_ip: "198.51.100.42",
+            username: "root_admin",
+            message: `Failed authentication attempt #${i + 1}`,
           });
         }
-      } else if (type === "sql_injection") {
+      } else {
         await submitSiemEvent({
-            source: "synthetic-tester",
-            event_type: "waf_alert",
-            severity: "HIGH",
-            category: "Injection",
-            source_ip: "203.0.113.5",
-            message: "SELECT * FROM users WHERE name = '' OR 1=1 --;"
-        });
-      } else if (type === "command_injection") {
-        await submitSiemEvent({
-            source: "synthetic-tester",
-            event_type: "waf_alert",
-            severity: "HIGH",
-            category: "Injection",
-            source_ip: "203.0.113.6",
-            raw_event: '{"payload": "; cat /etc/passwd"}'
+          source: "waf-ingress",
+          event_type: "waf_rule_match",
+          severity: "CRITICAL",
+          category: "Web Application",
+          source_ip: "203.0.113.88",
+          message: "SQLi vector intercepted: ' OR 1=1 --",
         });
       }
-      setTimeout(() => setSeverityFilter(prev => prev), 1000); // Trigger re-fetch
-    } catch (err) {
-      console.error(err);
+      await fetchSOCData();
+    } catch (e) {
+      console.error("Synthetic trigger error", e);
     } finally {
       setSyntheticLoading(false);
     }
   };
 
-  const summary = useMemo(() => {
-    const s = { CRITICAL: 0, HIGH: 0, MEDIUM: 0, OPEN: 0 };
-    alerts.forEach(a => {
-      if (a.severity === "CRITICAL") s.CRITICAL++;
-      if (a.severity === "HIGH") s.HIGH++;
-      if (a.severity === "MEDIUM") s.MEDIUM++;
-      if (a.status === "OPEN") s.OPEN++;
-    });
-    return s;
-  }, [alerts]);
-
   return (
-    <div className="flex h-screen bg-gray-950 text-gray-100 font-sans overflow-hidden">
-      <SidebarPlaceholder />
-      
-      <main className="flex-1 flex flex-col h-full overflow-hidden">
-        <header className="h-14 border-b border-gray-800 flex items-center px-6 justify-between bg-gray-900/80 backdrop-blur-md sticky top-0 z-20 shadow-md">
-          <div className="font-semibold tracking-wide flex items-center gap-3">
-            <span className="text-blue-400">SOC Dashboard</span>
-            <span className="bg-blue-900/30 border border-blue-800 text-blue-300 px-2 py-0.5 rounded text-xs">Phase 8</span>
-          </div>
-          
-          <div className="flex items-center gap-4 text-sm">
-            <button 
-              disabled={syntheticLoading}
-              onClick={() => triggerSyntheticEvent("brute_force")}
-              className="px-3 py-1 bg-gray-800 hover:bg-gray-700 rounded text-gray-300 border border-gray-700 transition-colors"
-            >
-              Test: Brute Force
-            </button>
-            <button 
-              disabled={syntheticLoading}
-              onClick={() => triggerSyntheticEvent("sql_injection")}
-              className="px-3 py-1 bg-gray-800 hover:bg-gray-700 rounded text-gray-300 border border-gray-700 transition-colors"
-            >
-              Test: SQLi
-            </button>
-            <button 
-              disabled={syntheticLoading}
-              onClick={() => triggerSyntheticEvent("command_injection")}
-              className="px-3 py-1 bg-gray-800 hover:bg-gray-700 rounded text-gray-300 border border-gray-700 transition-colors"
-            >
-              Test: Cmdi
-            </button>
-          </div>
-        </header>
+    <div className="flex h-screen bg-[#FAFAFA] text-[#111111] overflow-hidden">
+      <Sidebar />
 
-        <div className="flex-1 overflow-y-auto p-6">
-          {/* Summary Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-            <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 shadow-lg flex flex-col justify-center">
-              <div className="text-sm text-gray-400 font-medium uppercase tracking-wider mb-1">Total Events</div>
-              <div className="text-3xl font-bold text-gray-100">{totalEvents}</div>
-            </div>
-            <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 shadow-lg flex flex-col justify-center">
-              <div className="text-sm text-gray-400 font-medium uppercase tracking-wider mb-1">Open Alerts</div>
-              <div className="text-3xl font-bold text-blue-400">{summary.OPEN}</div>
-            </div>
-            <div className="bg-red-950/20 border border-red-900/40 rounded-xl p-5 shadow-lg flex flex-col justify-center">
-              <div className="text-sm text-red-400 font-medium uppercase tracking-wider mb-1">Critical Alerts</div>
-              <div className="text-3xl font-bold text-red-500">{summary.CRITICAL}</div>
-            </div>
-            <div className="bg-orange-950/20 border border-orange-900/40 rounded-xl p-5 shadow-lg flex flex-col justify-center">
-              <div className="text-sm text-orange-400 font-medium uppercase tracking-wider mb-1">High Alerts</div>
-              <div className="text-3xl font-bold text-orange-500">{summary.HIGH}</div>
-            </div>
-            <div className="bg-yellow-950/20 border border-yellow-900/40 rounded-xl p-5 shadow-lg flex flex-col justify-center">
-              <div className="text-sm text-yellow-400 font-medium uppercase tracking-wider mb-1">Medium Alerts</div>
-              <div className="text-3xl font-bold text-yellow-500">{summary.MEDIUM}</div>
-            </div>
-          </div>
+      <main className="flex-1 flex flex-col h-full overflow-y-auto pb-16 md:pb-0">
+        <Header
+          title="SOC Command Center & SIEM"
+          subtitle="Real-time event pipeline, anomaly correlation, and AI-assisted threat intelligence"
+          badge={
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-mono font-bold flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              INGESTION LIVE
+            </span>
+          }
+        />
 
-          {/* Filters */}
-          <div className="flex gap-4 mb-6 bg-gray-900 p-4 rounded-xl border border-gray-800 shadow-md">
-            <div className="flex flex-col">
-              <label className="text-xs text-gray-500 mb-1 uppercase tracking-wider font-semibold">Severity</label>
-              <select 
-                className="bg-gray-950 border border-gray-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500 text-gray-200"
-                value={severityFilter}
-                onChange={e => setSeverityFilter(e.target.value)}
-              >
-                <option value="ALL">All Severities</option>
-                <option value="CRITICAL">Critical</option>
-                <option value="HIGH">High</option>
-                <option value="MEDIUM">Medium</option>
-                <option value="LOW">Low</option>
-                <option value="INFO">Info</option>
-              </select>
-            </div>
-            
-            <div className="flex flex-col">
-              <label className="text-xs text-gray-500 mb-1 uppercase tracking-wider font-semibold">Alert Status</label>
-              <select 
-                className="bg-gray-950 border border-gray-700 rounded-lg px-3 py-2 text-sm outline-none focus:border-blue-500 text-gray-200"
-                value={alertStatusFilter}
-                onChange={e => setAlertStatusFilter(e.target.value)}
-              >
-                <option value="ALL">All Statuses</option>
-                <option value="OPEN">OPEN</option>
-                <option value="IN REVIEW">IN REVIEW</option>
-                <option value="RESOLVED">RESOLVED</option>
-                <option value="FALSE POSITIVE">FALSE POSITIVE</option>
-              </select>
-            </div>
-          </div>
+        <div className="p-4 md:p-8 max-w-7xl mx-auto w-full space-y-8">
+          {/* Top Status & Metrics */}
+          <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <Card className="p-4" hoverable>
+              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1 font-mono">
+                Active Alerts
+              </div>
+              <div className="text-3xl font-extrabold text-[#E85000]">{alerts.length}</div>
+              <div className="text-[11px] text-gray-400 mt-1">Requiring SOC triage</div>
+            </Card>
 
-          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-            
-            {/* Alerts List */}
-            <div className="flex flex-col space-y-4">
-              <h2 className="text-xl font-semibold border-b border-gray-800 pb-2">Active Security Alerts</h2>
-              {loading && alerts.length === 0 ? (
-                <div className="text-center py-10 text-gray-500">Loading alerts...</div>
-              ) : alerts.length === 0 ? (
-                <div className="bg-gray-900 border border-gray-800 rounded-xl p-8 text-center text-gray-400">
-                  No active alerts matching your criteria.
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {alerts.map(a => (
-                    <div 
-                      key={a.id} 
-                      onClick={() => handleSelectAlert(a)}
-                      className={`p-4 rounded-xl border cursor-pointer transition-all shadow-sm ${
-                        selectedAlert?.id === a.id 
-                          ? 'bg-gray-800 border-blue-500/50 ring-1 ring-blue-500/30' 
-                          : 'bg-gray-900 border-gray-800 hover:border-gray-700 hover:bg-gray-800/50'
-                      }`}
+            <Card className="p-4" hoverable>
+              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1 font-mono">
+                Ingested Events
+              </div>
+              <div className="text-3xl font-extrabold text-[#111111]">{totalEvents}</div>
+              <div className="text-[11px] text-gray-400 mt-1">Total SIEM telemetry</div>
+            </Card>
+
+            <Card className="p-4 bg-red-50/50 border-red-200/80" hoverable>
+              <div className="text-xs font-semibold text-red-700 uppercase tracking-wider mb-1 font-mono">
+                Critical Alerts
+              </div>
+              <div className="text-3xl font-extrabold text-red-600">
+                {alerts.filter((a) => a.severity === "CRITICAL").length}
+              </div>
+              <div className="text-[11px] text-red-500/80 mt-1">WAF / Exploit triggers</div>
+            </Card>
+
+            {/* Quick Threat Generator */}
+            <Card className="p-4 flex flex-col justify-between" hoverable>
+              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 font-mono">
+                Simulate Threat
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleTriggerSyntheticThreat("BRUTE_FORCE")}
+                  disabled={syntheticLoading}
+                >
+                  Auth Attack
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => handleTriggerSyntheticThreat("SQL_INJECTION")}
+                  disabled={syntheticLoading}
+                >
+                  SQLi Exploit
+                </Button>
+              </div>
+            </Card>
+          </section>
+
+          {/* Main SOC Workspace */}
+          <section className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            {/* Left 7 Columns: Triage Queue & Event Stream */}
+            <div className="lg:col-span-7 space-y-6">
+              {/* Alert Triage Section */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-base font-bold text-[#111111] flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#FF6B00]" />
+                    <span>Correlated Security Alerts</span>
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    <select
+                      value={severityFilter}
+                      onChange={(e) => setSeverityFilter(e.target.value)}
+                      className="text-xs bg-white border border-[#EAEAEA] rounded-xl px-3 py-1.5 outline-none focus:border-[#FF6B00] cursor-pointer"
                     >
-                      <div className="flex justify-between items-start mb-2">
-                        <div className="font-semibold text-gray-100">{a.title}</div>
-                        <div className="flex gap-2 items-center">
-                          <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-gray-800 text-gray-300 border border-gray-700">
-                            {a.status}
-                          </span>
-                          <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded border
-                            ${a.severity === 'CRITICAL' ? 'bg-red-500/10 text-red-400 border-red-500/30' : ''}
-                            ${a.severity === 'HIGH' ? 'bg-orange-500/10 text-orange-400 border-orange-500/30' : ''}
-                            ${a.severity === 'MEDIUM' ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30' : ''}
-                            ${a.severity === 'LOW' ? 'bg-blue-500/10 text-blue-400 border-blue-500/30' : ''}
-                            ${a.severity === 'INFO' ? 'bg-gray-500/10 text-gray-400 border-gray-500/30' : ''}
-                          `}>
-                            {a.severity}
-                          </span>
+                      <option value="ALL">All Severities</option>
+                      <option value="CRITICAL">Critical</option>
+                      <option value="HIGH">High</option>
+                      <option value="MEDIUM">Medium</option>
+                      <option value="LOW">Low</option>
+                    </select>
+
+                    <select
+                      value={alertStatusFilter}
+                      onChange={(e) => setAlertStatusFilter(e.target.value)}
+                      className="text-xs bg-white border border-[#EAEAEA] rounded-xl px-3 py-1.5 outline-none focus:border-[#FF6B00] cursor-pointer"
+                    >
+                      <option value="ALL">All Statuses</option>
+                      <option value="OPEN">Open</option>
+                      <option value="IN REVIEW">In Review</option>
+                      <option value="RESOLVED">Resolved</option>
+                    </select>
+                  </div>
+                </div>
+
+                {loading && alerts.length === 0 ? (
+                  <div className="p-8 text-center text-xs text-gray-400">Loading alerts queue...</div>
+                ) : alerts.length === 0 ? (
+                  <EmptyState
+                    title="Your SOC is quiet"
+                    description="No correlated security alerts currently require triage. Trigger a synthetic threat above to test detection pipelines."
+                  />
+                ) : (
+                  <div className="space-y-2.5">
+                    {alerts.map((alert) => {
+                      const isSelected = selectedAlert?.id === alert.id;
+                      return (
+                        <div
+                          key={alert.id}
+                          onClick={() => handleSelectAlert(alert)}
+                          className={`p-4 rounded-2xl border transition-all cursor-pointer ${
+                            isSelected
+                              ? "bg-[#FFF8F3] border-[#FF6B00] shadow-[0_4px_16px_rgba(255,107,0,0.1)]"
+                              : "bg-white border-[#EAEAEA] hover:border-[#D1D5DB]"
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-3 mb-2">
+                            <h4 className="text-sm font-bold text-[#111111]">{alert.title}</h4>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <StatusBadge status={alert.status} />
+                              <SeverityBadge severity={alert.severity} size="sm" />
+                            </div>
+                          </div>
+                          <p className="text-xs text-gray-600 mb-2">{alert.description}</p>
+                          <div className="flex items-center justify-between text-[11px] text-[#6B7280] font-mono">
+                            <span>Rule: {alert.rule_id}</span>
+                            <span>{new Date(alert.timestamp).toLocaleTimeString()}</span>
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex justify-between items-center text-xs text-gray-500">
-                        <div className="font-mono">{a.rule_id} &bull; {a.category}</div>
-                        <div>{new Date(a.timestamp).toLocaleString()}</div>
-                      </div>
-                    </div>
-                  ))}
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Real-time SIEM Events Stream */}
+              <div className="space-y-3 pt-4 border-t border-gray-100">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-[#111111]">Recent Telemetry Stream</h3>
+                  <span className="text-xs text-gray-400 font-mono">{events.length} events logged</span>
                 </div>
-              )}
+
+                <div className="bg-white rounded-2xl border border-[#EAEAEA] overflow-hidden shadow-xs">
+                  <div className="max-h-64 overflow-y-auto divide-y divide-gray-100">
+                    {events.map((evt) => (
+                      <div key={evt.id} className="p-3 text-xs flex items-center justify-between hover:bg-gray-50/80 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <span className={`w-2 h-2 rounded-full ${evt.severity === "CRITICAL" ? "bg-red-500" : evt.severity === "HIGH" ? "bg-[#FF6B00]" : "bg-blue-500"}`} />
+                          <div className="flex flex-col">
+                            <span className="font-semibold text-gray-900">{evt.event_type}</span>
+                            <span className="text-[11px] text-gray-500 font-mono">{evt.source} {evt.source_ip ? `• ${evt.source_ip}` : ""}</span>
+                          </div>
+                        </div>
+                        <SeverityBadge severity={evt.severity} size="sm" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
 
-            {/* Alert Details */}
-            {selectedAlert ? (
-              <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-xl h-fit sticky top-6">
-                <div className="flex justify-between items-start mb-6 pb-6 border-b border-gray-800">
-                  <div>
-                    <div className="flex items-center gap-3 mb-2">
-                        <span className={`text-xs px-2 py-1 rounded font-bold uppercase tracking-wider
-                                ${selectedAlert.severity === 'CRITICAL' ? 'bg-red-500 text-white' : ''}
-                                ${selectedAlert.severity === 'HIGH' ? 'bg-orange-500 text-white' : ''}
-                                ${selectedAlert.severity === 'MEDIUM' ? 'bg-yellow-500 text-black' : ''}
-                                ${selectedAlert.severity === 'LOW' ? 'bg-blue-500 text-white' : ''}
-                                ${selectedAlert.severity === 'INFO' ? 'bg-gray-500 text-white' : ''}
-                        `}>
-                            {selectedAlert.severity}
-                        </span>
-                        <span className="text-sm font-mono text-gray-400">{selectedAlert.rule_id}</span>
+            {/* Right 5 Columns: AI Threat Intelligence & Investigation Drawer */}
+            <div className="lg:col-span-5">
+              {selectedAlert ? (
+                <CyberCard className="p-6 sticky top-20 space-y-5" hoverable>
+                  <div className="flex items-start justify-between gap-3 pb-4 border-b border-[#22272E]">
+                    <div>
+                      <div className="text-[10px] font-mono font-bold text-[#FF7A00] uppercase tracking-wider mb-1">
+                        PHASE 9 THREAT INTELLIGENCE
+                      </div>
+                      <h3 className="text-base font-bold text-white leading-tight">
+                        {selectedAlert.title}
+                      </h3>
                     </div>
-                    <h2 className="text-2xl font-bold text-gray-100">{selectedAlert.title}</h2>
-                    <div className="text-sm text-gray-400 mt-1">{new Date(selectedAlert.timestamp).toLocaleString()}</div>
+                    <SeverityBadge severity={selectedAlert.severity} />
                   </div>
-                  <div>
-                    <button
-                        onClick={() => handleInvestigate(selectedAlert.id)}
-                        disabled={investigating}
-                        className="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-semibold py-2 px-4 rounded-lg shadow-md transition-colors"
-                    >
-                        {investigating ? "Analyzing..." : "Investigate with AI"}
-                    </button>
-                  </div>
-                </div>
 
-                <div className="space-y-6 text-sm">
+                  {/* Status Toggle */}
                   <div>
-                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Alert Status</label>
-                    <select 
-                      className="bg-gray-950 border border-gray-700 rounded-lg px-4 py-2 outline-none w-full text-gray-200 focus:border-blue-500"
+                    <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 font-mono">
+                      SOC Workflow Status
+                    </label>
+                    <select
                       value={selectedAlert.status}
                       onChange={(e) => handleStatusChange(selectedAlert.id, e.target.value)}
+                      className="w-full bg-[#161B22] border border-[#2D333B] text-white rounded-xl px-3 py-2 text-xs font-medium outline-none focus:border-[#FF6B00] cursor-pointer"
                     >
-                      <option value="OPEN">OPEN - Needs Investigation</option>
-                      <option value="IN REVIEW">IN REVIEW - Being Analyzed</option>
-                      <option value="RESOLVED">RESOLVED - Threat Mitigated</option>
-                      <option value="FALSE POSITIVE">FALSE POSITIVE - Safe Activity</option>
+                      <option value="OPEN">OPEN (Unassigned)</option>
+                      <option value="IN REVIEW">IN REVIEW (Active Investigation)</option>
+                      <option value="RESOLVED">RESOLVED (Threat Mitigated)</option>
+                      <option value="FALSE POSITIVE">FALSE POSITIVE (Excluded)</option>
                     </select>
                   </div>
 
+                  {/* AI Copilot Investigation Button */}
                   <div>
-                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Description</label>
-                    <div className="text-gray-300 leading-relaxed bg-gray-950 p-4 rounded-lg border border-gray-800">
-                        {selectedAlert.description}
-                    </div>
+                    <Button
+                      variant="primary"
+                      className="w-full"
+                      onClick={() => handleAnalyzeAlertWithAI(selectedAlert.id)}
+                      isLoading={investigating}
+                    >
+                      {investigating ? "Correlating Indicators..." : "Run AI Threat Intelligence"}
+                    </Button>
                   </div>
 
-                  {selectedEventForAlert && (
-                    <div className="space-y-4 pt-4 border-t border-gray-800">
-                        <h3 className="font-semibold text-lg">Event Context</h3>
-                        
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Source IP</label>
-                                <div className="text-gray-300 font-mono bg-gray-950 px-3 py-2 rounded border border-gray-800">{selectedEventForAlert.source_ip || "N/A"}</div>
-                            </div>
-                            <div>
-                                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Username</label>
-                                <div className="text-gray-300 font-mono bg-gray-950 px-3 py-2 rounded border border-gray-800">{selectedEventForAlert.username || "N/A"}</div>
-                            </div>
+                  {/* Intelligence Results */}
+                  {intelligence ? (
+                    <div className="space-y-4 pt-4 border-t border-[#22272E] text-xs">
+                      <div className="flex items-center justify-between bg-[#161B22] p-3 rounded-xl border border-[#2D333B]">
+                        <div>
+                          <span className="text-gray-400 block text-[10px] uppercase font-mono">Risk Score</span>
+                          <span className="text-xl font-bold text-[#FF7A00]">{intelligence.risk_score} / 100</span>
                         </div>
+                        <div>
+                          <span className="text-gray-400 block text-[10px] uppercase font-mono">Confidence</span>
+                          <span className="text-sm font-semibold text-emerald-400">{intelligence.confidence}</span>
+                        </div>
+                      </div>
 
-                        {(selectedEventForAlert.message || selectedEventForAlert.raw_event) && (
-                            <div>
-                                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Raw Evidence</label>
-                                <div className="bg-gray-950 p-4 rounded-lg font-mono text-red-300 border border-gray-800 overflow-x-auto whitespace-pre-wrap text-xs shadow-inner">
-                                    {selectedEventForAlert.raw_event || selectedEventForAlert.message}
-                                </div>
-                            </div>
-                        )}
+                      <div>
+                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 font-mono">
+                          Executive Assessment
+                        </label>
+                        <p className="text-gray-300 bg-[#161B22] p-3 rounded-xl border border-[#2D333B] leading-relaxed">
+                          {intelligence.summary}
+                        </p>
+                      </div>
+
+                      {intelligence.indicators && (
+                        <div>
+                          <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 font-mono">
+                            Extracted IOC Indicators
+                          </label>
+                          <div className="p-3 bg-[#090D11] text-[#FF7A00] font-mono rounded-xl border border-[#22272E] text-[11px] overflow-x-auto">
+                            {intelligence.indicators}
+                          </div>
+                        </div>
+                      )}
+
+                      {intelligence.recommended_actions && (
+                        <div>
+                          <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 font-mono">
+                            Recommended SOC Actions
+                          </label>
+                          <div className="text-emerald-400 bg-emerald-950/30 p-3 rounded-xl border border-emerald-800/50 leading-relaxed font-sans">
+                            {intelligence.recommended_actions}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="p-4 rounded-xl bg-[#161B22] border border-[#2D333B] text-center text-gray-400 text-xs">
+                      Click &quot;Run AI Threat Intelligence&quot; to extract indicators and calculate risk correlation.
                     </div>
                   )}
-
-                  {/* Investigation Intelligence */}
-                  {intelligence && (
-                    <div className="space-y-4 pt-4 border-t border-gray-800">
-                        <h3 className="font-semibold text-lg text-blue-400 border-b border-gray-800 pb-2">Intelligence Context</h3>
-                        
-                        <div className="bg-gray-950 p-4 rounded-lg border border-gray-800 flex items-center justify-between">
-                            <div>
-                                <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold">Risk Score</div>
-                                <div className="text-2xl font-bold text-gray-200">{intelligence.risk_score} / 100</div>
-                            </div>
-                            <div className="text-right">
-                                <div className="text-xs text-gray-500 uppercase tracking-wider font-semibold mb-1">Confidence</div>
-                                <span className="bg-gray-800 text-gray-300 px-2 py-1 rounded text-xs font-bold">{intelligence.confidence}</span>
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="bg-gray-900 border border-gray-800 rounded-lg p-4">
-                                <h4 className="text-xs text-blue-400 uppercase tracking-wider font-bold mb-2">DETECTED (Deterministic)</h4>
-                                <div className="space-y-3">
-                                    <div>
-                                        <div className="text-xs text-gray-500 uppercase font-semibold">Related Events</div>
-                                        <div className="text-sm text-gray-300">{intelligence.related_events ? JSON.parse(intelligence.related_events).length : 0} event(s) correlated</div>
-                                    </div>
-                                    <div>
-                                        <div className="text-xs text-gray-500 uppercase font-semibold">IOC Indicators</div>
-                                        {intelligence.indicators && JSON.parse(intelligence.indicators).length > 0 ? (
-                                            <ul className="text-sm font-mono text-gray-300 list-disc list-inside">
-                                                {(JSON.parse(intelligence.indicators) as IOCIndicator[]).map((ioc, idx) => (
-                                                    <li key={idx} title={ioc.description || ioc.source}>{ioc.indicator} <span className="text-xs text-gray-500 ml-1 border rounded px-1">{ioc.type}</span></li>
-                                                ))}
-                                            </ul>
-                                        ) : (
-                                            <div className="text-sm text-gray-500">None detected</div>
-                                        )}
-                                    </div>
-                                    <div>
-                                        <div className="text-xs text-gray-500 uppercase font-semibold">Deterministic Evidence</div>
-                                        <div className="text-sm text-gray-300 whitespace-pre-wrap">{intelligence.evidence?.split('\n')[0]}</div>
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="bg-gray-900 border border-gray-800 rounded-lg p-4 shadow-[0_0_15px_rgba(59,130,246,0.1)]">
-                                <h4 className="text-xs text-purple-400 uppercase tracking-wider font-bold mb-2 flex items-center gap-2">
-                                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path d="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v3h8v-3zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" /></svg>
-                                    INFERRED (AI Analysis)
-                                </h4>
-                                <div className="space-y-3">
-                                    <div>
-                                        <div className="text-xs text-gray-500 uppercase font-semibold">Summary</div>
-                                        <div className="text-sm text-gray-300 leading-relaxed">{intelligence.summary}</div>
-                                    </div>
-                                    {intelligence.recommended_actions && (
-                                        <div>
-                                            <div className="text-xs text-gray-500 uppercase font-semibold">Recommended Actions</div>
-                                            <div className="text-sm text-gray-300 leading-relaxed">{intelligence.recommended_actions}</div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ) : (
-                <div className="bg-gray-900 border border-gray-800 rounded-xl p-8 flex flex-col justify-center items-center h-[500px] text-gray-500 shadow-lg">
-                    <svg className="w-16 h-16 mb-4 opacity-20" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" /></svg>
-                    <p>Select an alert to view details, evidence, and update status.</p>
-                </div>
-            )}
-            
-          </div>
-          
-          {/* Recent Events Table */}
-          <div className="mt-8">
-            <h2 className="text-xl font-semibold border-b border-gray-800 pb-2 mb-4">Recent Security Events Feed</h2>
-            <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden shadow-lg">
-                <table className="w-full text-left text-sm">
-                    <thead className="bg-gray-950 text-gray-400 font-semibold uppercase tracking-wider text-xs border-b border-gray-800">
-                        <tr>
-                            <th className="px-4 py-3">Timestamp</th>
-                            <th className="px-4 py-3">Severity</th>
-                            <th className="px-4 py-3">Event Type</th>
-                            <th className="px-4 py-3">Source / User</th>
-                            <th className="px-4 py-3">Message</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-800">
-                        {events.length === 0 ? (
-                            <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-500">No events found.</td></tr>
-                        ) : events.map(e => (
-                            <tr key={e.id} className="hover:bg-gray-800/30 transition-colors">
-                                <td className="px-4 py-3 text-gray-400 whitespace-nowrap">{new Date(e.timestamp).toLocaleString()}</td>
-                                <td className="px-4 py-3">
-                                    <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded border
-                                        ${e.severity === 'CRITICAL' ? 'bg-red-500/10 text-red-400 border-red-500/30' : ''}
-                                        ${e.severity === 'HIGH' ? 'bg-orange-500/10 text-orange-400 border-orange-500/30' : ''}
-                                        ${e.severity === 'MEDIUM' ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30' : ''}
-                                        ${e.severity === 'LOW' ? 'bg-blue-500/10 text-blue-400 border-blue-500/30' : ''}
-                                        ${e.severity === 'INFO' ? 'bg-gray-500/10 text-gray-400 border-gray-500/30' : ''}
-                                    `}>
-                                        {e.severity}
-                                    </span>
-                                </td>
-                                <td className="px-4 py-3 font-mono text-gray-300">{e.event_type}</td>
-                                <td className="px-4 py-3">
-                                    <div className="text-gray-300">{e.source_ip || e.source}</div>
-                                    {e.username && <div className="text-xs text-gray-500 mt-0.5">{e.username}</div>}
-                                </td>
-                                <td className="px-4 py-3 text-gray-400 truncate max-w-xs" title={e.message || e.raw_event}>
-                                    {e.message || e.raw_event || "-"}
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+                </CyberCard>
+              ) : (
+                <Card className="p-8 text-center text-gray-400 border-dashed sticky top-20">
+                  <svg className="w-10 h-10 mx-auto text-gray-300 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                  </svg>
+                  <span className="text-xs">Select any alert from the triage queue to run deep threat intelligence.</span>
+                </Card>
+              )}
             </div>
-          </div>
-
+          </section>
         </div>
       </main>
+
+      <MobileNav />
     </div>
   );
 }
