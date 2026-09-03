@@ -29,10 +29,15 @@ def main():
     if os.path.isfile(target):
         all_findings.extend(scan_file(target))
     elif os.path.isdir(target):
-        for root, _, files in os.walk(target):
-            # Safe skip list
-            if any(ignored in root for ignored in ['.git', 'node_modules', '.venv', '__pycache__', '.next', 'tests', 'test']):
-                continue
+        ignored_dirs = {'.git', 'node_modules', '.venv', 'venv', '__pycache__', '.next', 'tests'}
+        for root, dirs, files in os.walk(target):
+            # Prune ignored child directories so os.walk does not descend into them
+            dirs[:] = [d for d in dirs if d not in ignored_dirs]
+            rel_path = os.path.relpath(root, target)
+            if rel_path != ".":
+                rel_parts = set(os.path.normpath(rel_path).split(os.sep))
+                if rel_parts.intersection(ignored_dirs):
+                    continue
             for file in files:
                 if file.endswith(('.py', '.ts', '.tsx', '.json', '.js', '.yml', '.yaml')):
                     # Skip the scanner itself to avoid self-detection

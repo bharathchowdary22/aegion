@@ -20,7 +20,7 @@ jobs:
           POSTGRES_PASSWORD: password
           POSTGRES_DB: aegion
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U user -d aegion"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -51,6 +51,10 @@ jobs:
 
   frontend-check:
     runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder_key_for_ci_build
+      NEXT_PUBLIC_API_URL: http://localhost:8000
     steps:
       - uses: actions/checkout@v4
       

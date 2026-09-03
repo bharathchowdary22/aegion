@@ -11,13 +11,13 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   
   const router = useRouter();
-  const supabase = createClient();
 
   const handleAuth = async (isSignUp: boolean) => {
     setLoading(true);
     setError(null);
     
     try {
+      const supabase = createClient();
       if (isSignUp) {
         const { error } = await supabase.auth.signUp({
           email,

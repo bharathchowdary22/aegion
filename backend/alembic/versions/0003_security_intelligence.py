@@ -1,8 +1,8 @@
-"""${message}
+"""security intelligence
 
-Revision ID: ${up_revision}
-Revises: ${down_revision | comma,n}
-Create Date: ${create_date}
+Revision ID: 6c222f458559
+Revises: b876b720fe30
+Create Date: 2026-08-26 10:00:00.000000
 
 """
 from typing import Sequence, Union
