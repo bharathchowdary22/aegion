@@ -5,19 +5,40 @@
   --font-mono: var(--font-geist-mono), monospace;
 }
 
+/* =============================================
+   AEGION Design System — Orange + Light White
+   ============================================= */
+
 :root {
+  /* --- Brand Orange --- */
   --primary-orange: #FF6B00;
   --bright-orange: #FF7A00;
   --deep-orange: #E85000;
-  --soft-orange: #FFF1E6;
-  --light-orange: #FFF8F3;
+  --hover-orange: #F05A00;
+
+  /* --- Light Orange Surfaces --- */
+  --very-light-orange: #FFF4EA;
+  --soft-orange: #FFF8F3;
+  --warm-white: #FFFCF9;
+
+  /* --- Backgrounds --- */
   --background: #FFFFFF;
   --secondary-bg: #FAFAFA;
-  --dark-accent: #0E1217;
-  --dark-surface: #161B22;
-  --text-main: #111111;
-  --text-muted: #6B7280;
-  --border-color: #EAEAEA;
+
+  /* --- Borders --- */
+  --border-color: #F1E4DA;
+  --border-subtle: #EAEAEA;
+
+  /* --- Text --- */
+  --text-main: #171717;
+  --text-secondary: #6B7280;
+  --text-muted: #9CA3AF;
+
+  /* --- Semantic --- */
+  --color-success: #16A34A;
+  --color-warning: #F59E0B;
+  --color-critical: #EF4444;
+  --color-info: #3B82F6;
 }
 
 body {
@@ -27,7 +48,9 @@ body {
   overflow-x: hidden;
 }
 
-/* Custom Scrollbar */
+/* =============================================
+   Custom Scrollbar — warm orange tint
+   ============================================= */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -38,35 +61,76 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #D1D5DB;
+  background: #E5D5C8;
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #9CA3AF;
+  background: #D4B5A0;
 }
 
-/* Orange Glows and Effects */
+/* =============================================
+   Orange Glow Utilities
+   ============================================= */
 .orange-glow {
-  box-shadow: 0 0 24px rgba(255, 107, 0, 0.22);
+  box-shadow: 0 0 24px rgba(255, 107, 0, 0.18);
 }
 
 .orange-glow-sm {
-  box-shadow: 0 0 12px rgba(255, 107, 0, 0.16);
+  box-shadow: 0 0 12px rgba(255, 107, 0, 0.12);
 }
 
 .orange-glow-lg {
-  box-shadow: 0 0 36px rgba(255, 107, 0, 0.32);
+  box-shadow: 0 0 36px rgba(255, 107, 0, 0.28);
 }
 
-.dark-cyber-grid {
+.orange-glow-ring {
+  box-shadow: 0 0 0 3px rgba(255, 107, 0, 0.12);
+}
+
+/* =============================================
+   Warm Card Utilities
+   ============================================= */
+.warm-card {
+  background: #FFFCF9;
+  border: 1px solid #F1E4DA;
+  box-shadow: 0 2px 12px rgba(255, 107, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.02);
+}
+
+.orange-top-border::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(to right, transparent, #FF6B00, transparent);
+  opacity: 0.85;
+}
+
+/* =============================================
+   Light Code Block — replaces dark terminal style
+   ============================================= */
+.light-code-block {
+  background: #FFF8F3;
+  color: #C23E00;
+  border: 1px solid #F1D4BA;
+  font-family: var(--font-mono);
+}
+
+/* =============================================
+   Subtle Cyber Grid — for decorative panels
+   ============================================= */
+.orange-grid {
   background-size: 24px 24px;
-  background-image: 
-    linear-gradient(to right, rgba(255, 107, 0, 0.05) 1px, transparent 1px),
-    linear-gradient(to bottom, rgba(255, 107, 0, 0.05) 1px, transparent 1px);
+  background-image:
+    linear-gradient(to right, rgba(255, 107, 0, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 107, 0, 0.04) 1px, transparent 1px);
 }
 
-/* Animation utilities */
+/* =============================================
+   Animation Utilities
+   ============================================= */
 @keyframes pulse-subtle {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.5; }
@@ -83,4 +147,28 @@ body {
 
 .animate-scan-line {
   animation: scan-line 3s linear infinite;
+}
+
+@keyframes shimmer-warm {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-shimmer-warm {
+  background: linear-gradient(
+    90deg,
+    #FFF8F3 0%,
+    #FFE8D0 50%,
+    #FFF8F3 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer-warm 2s infinite;
+}
+
+/* =============================================
+   Focus Styles
+   ============================================= */
+:focus-visible {
+  outline: 2px solid #FF6B00;
+  outline-offset: 2px;
 }

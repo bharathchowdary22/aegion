@@ -20,9 +20,9 @@ export function SecurityGauge({
   const strokeDashoffset = circumference - (score / 100) * circumference;
 
   const getStatusColor = () => {
-    if (score >= 80) return { text: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/30", stroke: "#10B981" };
-    if (score >= 50) return { text: "text-amber-400", bg: "bg-amber-500/10", border: "border-amber-500/30", stroke: "#F59E0B" };
-    return { text: "text-[#FF7A00]", bg: "bg-[#FF6B00]/10", border: "border-[#FF6B00]/30", stroke: "#FF6B00" };
+    if (score >= 80) return { text: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-200", stroke: "#16A34A", trackStroke: "#D1FAE5" };
+    if (score >= 50) return { text: "text-amber-600", bg: "bg-amber-50", border: "border-amber-200", stroke: "#F59E0B", trackStroke: "#FDE68A" };
+    return { text: "text-[#E85000]", bg: "bg-[#FFF4EA]", border: "border-[#FFD2B2]", stroke: "#FF6B00", trackStroke: "#FFE4CC" };
   };
 
   const statusStyle = getStatusColor();
@@ -30,23 +30,23 @@ export function SecurityGauge({
   return (
     <div className="flex flex-col items-center justify-center relative select-none">
       <div className="relative" style={{ width: size, height: size }}>
-        {/* Background glow */}
-        <div 
-          className="absolute inset-0 rounded-full blur-xl opacity-30 pointer-events-none transition-all duration-700"
+        {/* Warm ambient glow — subtle, not dark */}
+        <div
+          className="absolute inset-0 rounded-full blur-2xl opacity-20 pointer-events-none transition-all duration-700"
           style={{ background: statusStyle.stroke }}
         />
-        
+
         <svg width={size} height={size} className="transform -rotate-90">
-          {/* Background circle */}
+          {/* Background track — warm light color */}
           <circle
             cx={size / 2}
             cy={size / 2}
             r={radius}
-            stroke="#22272E"
+            stroke={statusStyle.trackStroke}
             strokeWidth={strokeWidth}
             fill="transparent"
           />
-          {/* Progress circle */}
+          {/* Progress arc */}
           <circle
             cx={size / 2}
             cy={size / 2}
@@ -61,10 +61,10 @@ export function SecurityGauge({
           />
         </svg>
 
-        {/* Center content */}
+        {/* Center content — dark readable text on white/warm bg */}
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-          <span className="text-4xl font-extrabold tracking-tight text-white">{score}</span>
-          <span className="text-[11px] font-mono tracking-widest text-gray-400 uppercase mt-0.5">/ 100</span>
+          <span className="text-4xl font-extrabold tracking-tight text-[#171717]">{score}</span>
+          <span className="text-[11px] font-mono tracking-widest text-[#9CA3AF] uppercase mt-0.5">/ 100</span>
         </div>
       </div>
 
@@ -72,7 +72,7 @@ export function SecurityGauge({
         <span className={`text-xs px-3 py-1 rounded-full font-bold uppercase tracking-wider border ${statusStyle.bg} ${statusStyle.text} ${statusStyle.border}`}>
           {status}
         </span>
-        <span className="text-xs text-gray-400 font-medium">{subtitle}</span>
+        <span className="text-xs text-[#6B7280] font-medium">{subtitle}</span>
       </div>
     </div>
   );

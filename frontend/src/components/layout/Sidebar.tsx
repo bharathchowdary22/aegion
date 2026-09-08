@@ -139,17 +139,17 @@ export default function Sidebar({
                   href={item.href}
                   className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all group ${
                     isActive
-                      ? "bg-[#FFF1E6] text-[#FF6B00] shadow-sm font-semibold"
-                      : "text-gray-600 hover:text-[#111111] hover:bg-gray-50"
+                      ? "bg-[#FF6B00] text-white shadow-[0_2px_8px_rgba(255,107,0,0.30)] font-semibold"
+                      : "text-[#6B7280] hover:text-[#171717] hover:bg-[#FFF8F3]"
                   }`}
                   title={collapsed ? item.name : undefined}
                 >
-                  <span className={`transition-colors ${isActive ? "text-[#FF6B00]" : "text-gray-400 group-hover:text-gray-700"}`}>
+                  <span className={`transition-colors ${isActive ? "text-white" : "text-[#9CA3AF] group-hover:text-[#FF6B00]"}`}>
                     {item.icon}
                   </span>
                   {!collapsed && <span className="truncate">{item.name}</span>}
                   {isActive && !collapsed && (
-                    <span className="ml-auto w-1.5 h-1.5 rounded-full bg-[#FF6B00]" />
+                    <span className="ml-auto w-1.5 h-1.5 rounded-full bg-white opacity-80" />
                   )}
                 </Link>
               );
@@ -211,10 +211,10 @@ export default function Sidebar({
       </div>
 
       {/* User Footer & Logout */}
-      <div className="p-3 border-t border-[#EAEAEA] bg-[#FAFAFA]">
+      <div className="p-3 border-t border-[#F1E4DA] bg-white">
         <div className={`flex items-center justify-between ${collapsed ? "flex-col gap-2" : ""}`}>
           <div className="flex items-center gap-2.5 overflow-hidden">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-gray-700 to-gray-900 text-white flex items-center justify-center font-bold text-xs flex-shrink-0">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#E85000] to-[#FF7A00] text-white flex items-center justify-center font-bold text-xs flex-shrink-0">
               A
             </div>
             {!collapsed && (

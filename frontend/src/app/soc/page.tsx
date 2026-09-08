@@ -355,12 +355,12 @@ export default function SOCDashboard() {
             <div className="lg:col-span-5">
               {selectedAlert ? (
                 <CyberCard className="p-6 sticky top-20 space-y-5" hoverable>
-                  <div className="flex items-start justify-between gap-3 pb-4 border-b border-[#22272E]">
+                  <div className="flex items-start justify-between gap-3 pb-4 border-b border-[#F1E4DA]">
                     <div>
-                      <div className="text-[10px] font-mono font-bold text-[#FF7A00] uppercase tracking-wider mb-1">
+                      <div className="text-[10px] font-mono font-bold text-[#FF6B00] uppercase tracking-wider mb-1">
                         PHASE 9 THREAT INTELLIGENCE
                       </div>
-                      <h3 className="text-base font-bold text-white leading-tight">
+                      <h3 className="text-base font-bold text-[#171717] leading-tight">
                         {selectedAlert.title}
                       </h3>
                     </div>
@@ -369,13 +369,13 @@ export default function SOCDashboard() {
 
                   {/* Status Toggle */}
                   <div>
-                    <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 font-mono">
+                    <label className="block text-[11px] font-bold text-[#6B7280] uppercase tracking-wider mb-1.5 font-mono">
                       SOC Workflow Status
                     </label>
                     <select
                       value={selectedAlert.status}
                       onChange={(e) => handleStatusChange(selectedAlert.id, e.target.value)}
-                      className="w-full bg-[#161B22] border border-[#2D333B] text-white rounded-xl px-3 py-2 text-xs font-medium outline-none focus:border-[#FF6B00] cursor-pointer"
+                      className="w-full bg-[#FFF8F3] border border-[#F1E4DA] text-[#171717] rounded-xl px-3 py-2 text-xs font-medium outline-none focus:border-[#FF6B00] cursor-pointer"
                     >
                       <option value="OPEN">OPEN (Unassigned)</option>
                       <option value="IN REVIEW">IN REVIEW (Active Investigation)</option>
@@ -398,33 +398,33 @@ export default function SOCDashboard() {
 
                   {/* Intelligence Results */}
                   {intelligence ? (
-                    <div className="space-y-4 pt-4 border-t border-[#22272E] text-xs">
-                      <div className="flex items-center justify-between bg-[#161B22] p-3 rounded-xl border border-[#2D333B]">
+                    <div className="space-y-4 pt-4 border-t border-[#F1E4DA] text-xs">
+                      <div className="flex items-center justify-between bg-[#FFF4EA] p-3 rounded-xl border border-[#FFD7BA]">
                         <div>
-                          <span className="text-gray-400 block text-[10px] uppercase font-mono">Risk Score</span>
-                          <span className="text-xl font-bold text-[#FF7A00]">{intelligence.risk_score} / 100</span>
+                          <span className="text-[#9CA3AF] block text-[10px] uppercase font-mono">Risk Score</span>
+                          <span className="text-xl font-bold text-[#E85000]">{intelligence.risk_score} / 100</span>
                         </div>
                         <div>
-                          <span className="text-gray-400 block text-[10px] uppercase font-mono">Confidence</span>
-                          <span className="text-sm font-semibold text-emerald-400">{intelligence.confidence}</span>
+                          <span className="text-[#9CA3AF] block text-[10px] uppercase font-mono">Confidence</span>
+                          <span className="text-sm font-semibold text-emerald-600">{intelligence.confidence}</span>
                         </div>
                       </div>
 
                       <div>
-                        <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 font-mono">
+                        <label className="block text-[10px] font-bold text-[#6B7280] uppercase tracking-wider mb-1 font-mono">
                           Executive Assessment
                         </label>
-                        <p className="text-gray-300 bg-[#161B22] p-3 rounded-xl border border-[#2D333B] leading-relaxed">
+                        <p className="text-[#6B7280] bg-[#FAFAFA] p-3 rounded-xl border border-[#F1E4DA] leading-relaxed">
                           {intelligence.summary}
                         </p>
                       </div>
 
                       {intelligence.indicators && (
                         <div>
-                          <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 font-mono">
+                          <label className="block text-[10px] font-bold text-[#6B7280] uppercase tracking-wider mb-1 font-mono">
                             Extracted IOC Indicators
                           </label>
-                          <div className="p-3 bg-[#090D11] text-[#FF7A00] font-mono rounded-xl border border-[#22272E] text-[11px] overflow-x-auto">
+                          <div className="p-3 bg-[#FFF8F3] text-[#C23E00] font-mono rounded-xl border border-[#F1D4BA] text-[11px] overflow-x-auto">
                             {intelligence.indicators}
                           </div>
                         </div>
@@ -432,17 +432,17 @@ export default function SOCDashboard() {
 
                       {intelligence.recommended_actions && (
                         <div>
-                          <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1 font-mono">
+                          <label className="block text-[10px] font-bold text-[#6B7280] uppercase tracking-wider mb-1 font-mono">
                             Recommended SOC Actions
                           </label>
-                          <div className="text-emerald-400 bg-emerald-950/30 p-3 rounded-xl border border-emerald-800/50 leading-relaxed font-sans">
+                          <div className="text-emerald-700 bg-emerald-50/60 p-3 rounded-xl border border-emerald-200 leading-relaxed font-sans">
                             {intelligence.recommended_actions}
                           </div>
                         </div>
                       )}
                     </div>
                   ) : (
-                    <div className="p-4 rounded-xl bg-[#161B22] border border-[#2D333B] text-center text-gray-400 text-xs">
+                    <div className="p-4 rounded-xl bg-[#FFF8F3] border border-[#F1E4DA] text-center text-[#9CA3AF] text-xs">
                       Click &quot;Run AI Threat Intelligence&quot; to extract indicators and calculate risk correlation.
                     </div>
                   )}

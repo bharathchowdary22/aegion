@@ -260,14 +260,14 @@ def get_user_data(username):
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full bg-[#FF6B00] animate-pulse" />
-                    <span className="text-xs font-mono font-bold tracking-widest text-[#FF7A00] uppercase">
+                    <span className="text-xs font-mono font-bold tracking-widest text-[#FF6B00] uppercase">
                       POSTURE COMMAND
                     </span>
                   </div>
-                  <span className="text-[11px] text-gray-400 font-mono">SAST / DAST</span>
+                  <span className="text-[11px] text-[#9CA3AF] font-mono">SAST / DAST</span>
                 </div>
-                <h3 className="text-lg font-bold text-white mb-1">Overall Security Score</h3>
-                <p className="text-xs text-gray-400 mb-6">
+                <h3 className="text-lg font-bold text-[#171717] mb-1">Overall Security Score</h3>
+                <p className="text-xs text-[#6B7280] mb-6">
                   Dynamic assessment calculated from open vulnerabilities and severe exposure vectors.
                 </p>
               </div>
@@ -276,9 +276,9 @@ def get_user_data(username):
                 <SecurityGauge score={securityScore} status={securityStatusTier} />
               </div>
 
-              <div className="mt-6 pt-4 border-t border-[#22272E] flex items-center justify-between text-xs">
-                <span className="text-gray-400">Controls Status:</span>
-                <span className={`font-semibold ${summary.CRITICAL > 0 || summary.HIGH > 0 ? "text-[#FF7A00]" : "text-emerald-400"}`}>
+              <div className="mt-6 pt-4 border-t border-[#F1E4DA] flex items-center justify-between text-xs">
+                <span className="text-[#6B7280]">Controls Status:</span>
+                <span className={`font-semibold ${summary.CRITICAL > 0 || summary.HIGH > 0 ? "text-[#E85000]" : "text-emerald-600"}`}>
                   {summary.CRITICAL > 0 || summary.HIGH > 0 ? "Remediation Needed" : "Optimally Guarded"}
                 </span>
               </div>
@@ -517,7 +517,7 @@ def get_user_data(username):
                           <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1 font-mono">
                             Evidence & AST Trace
                           </label>
-                          <div className="p-3 bg-[#0E1217] text-[#FF7A00] font-mono rounded-xl border border-[#22272E] overflow-x-auto whitespace-pre-wrap text-[11px]">
+                          <div className="p-3 bg-[#FFF8F3] text-[#C23E00] font-mono rounded-xl border border-[#F1D4BA] overflow-x-auto whitespace-pre-wrap text-[11px]">
                             {selectedFinding.evidence}
                           </div>
                         </div>
